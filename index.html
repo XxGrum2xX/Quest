@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Интерактивная страница</title>
+<title>Секретная миссия</title>
 <style>
     body {
         margin: 0;
@@ -14,8 +14,8 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        height: 100vh;
-        overflow: hidden;
+        min-height: 100vh;
+        overflow-x: hidden;
     }
 
     .screen {
@@ -26,7 +26,8 @@
         border-radius: 15px;
         box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         max-width: 800px;
-        width: 100%;
+        width: 90%;
+        margin: 20px;
     }
 
     .screen.active {
@@ -49,6 +50,8 @@
         border-radius: 8px;
         cursor: pointer;
         transition: transform 0.1s, background 0.2s;
+        max-width: 100%;
+        white-space: normal;
     }
 
     button:hover {
@@ -59,21 +62,27 @@
         transform: scale(0.95);
     }
 
+    /* Стили для пазла */
+    #puzzle-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+
     #puzzle-grid {
         display: grid;
         grid-template-columns: repeat(3, 200px);
         grid-template-rows: repeat(3, 133.33px);
         gap: 2px;
-        margin: 0 auto 20px auto;
-        width: 604px;
         background: #222;
         padding: 2px;
+        width: max-content;
     }
 
     .puzzle-piece {
         width: 200px;
         height: 133.33px;
-        background-image: url('11155.png');
+        background-image: url('11155.png'); /* Собираем из СТАРОЙ картинки */
         background-size: 600px 400px;
         cursor: pointer;
         transition: opacity 0.2s;
@@ -86,9 +95,22 @@
         opacity: 0.7;
     }
 
+    /* Адаптивность пазла для мобильных */
+    @media (max-width: 650px) {
+        #puzzle-grid {
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 66.66px);
+        }
+        .puzzle-piece {
+            width: 100px;
+            height: 66.66px;
+            background-size: 300px 200px;
+        }
+    }
+
     #timer-container {
         margin-top: 20px;
-        font-size: 36px;
+        font-size: 28px;
         font-weight: bold;
         color: #f1c40f;
     }
@@ -96,12 +118,18 @@
     .final-image {
         max-width: 100%;
         border-radius: 10px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        box-shadow: 0 5px 25px rgba(241, 196, 15, 0.3); /* Легкое свечение */
+        animation: reveal 1s ease-out;
     }
 
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes reveal {
+        from { opacity: 0; transform: scale(0.9); filter: brightness(2); }
+        to { opacity: 1; transform: scale(1); filter: brightness(1); }
     }
 </style>
 </head>
@@ -133,14 +161,18 @@
 </div>
 
 <div class="screen" id="puzzle-screen">
-    <h2>Собери картинку (кликай на части, чтобы поменять их местами)</h2>
-    <div id="puzzle-grid"></div>
+    <h2>Собери картинку, чтобы доказать это!</h2>
+    <p style="font-size: 14px; color: #aaa; margin-bottom: 20px;">(Кликай на части, чтобы поменять их местами)</p>
+    <div id="puzzle-container">
+        <div id="puzzle-grid"></div>
+    </div>
 </div>
 
 <div class="screen" id="final-screen">
-    <h2>Миссия выполнена</h2>
-    <img src="11155.png" alt="Собранная картинка" class="final-image">
-    <div id="timer-container">До 21:00 15.08.2026 осталось: <br><span id="timer">Загрузка...</span></div>
+    <h2 style="color: #f1c40f;">Сюрприз!</h2>
+    <!-- ЗДЕСЬ ПОЯВЛЯЕТСЯ НОВАЯ КАРТИНКА -->
+    <img src="11154.png" alt="Настоящий билет" class="final-image">
+    <div id="timer-container">Встречаемся через:<br><span id="timer">Загрузка...</span></div>
 </div>
 
 <script>
@@ -157,22 +189,43 @@
 
     let pieces = [0, 1, 2, 3, 4, 5, 6, 7, 8];
     let selectedPiece = null;
+    let isMobile = window.innerWidth <= 650;
+
+    // Обновляем размер, если экран перевернули
+    window.addEventListener('resize', () => {
+        let newIsMobile = window.innerWidth <= 650;
+        if (newIsMobile !== isMobile && screens[currentScreen].id === 'puzzle-screen') {
+            isMobile = newIsMobile;
+            renderPuzzle();
+        }
+    });
 
     function initPuzzle() {
-        pieces.sort(() => Math.random() - 0.5);
+        // Перемешиваем пазл
+        do {
+            pieces.sort(() => Math.random() - 0.5);
+        } while (checkWinState()); // Защита от случайной сборки при старте
         renderPuzzle();
     }
 
     function renderPuzzle() {
         const container = document.getElementById('puzzle-grid');
         container.innerHTML = '';
+        
+        let pieceWidth = isMobile ? 100 : 200;
+        let pieceHeight = isMobile ? 66.66 : 133.33;
+
         pieces.forEach((p, index) => {
             const div = document.createElement('div');
             div.className = 'puzzle-piece';
             if (selectedPiece === index) {
                 div.classList.add('selected');
             }
-            div.style.backgroundPosition = `-${(p % 3) * 200}px -${Math.floor(p / 3) * 133.33}px`;
+            // Вычисляем позицию фона для текущего кусочка
+            let bgX = -(p % 3) * pieceWidth;
+            let bgY = -Math.floor(p / 3) * pieceHeight;
+            
+            div.style.backgroundPosition = `${bgX}px ${bgY}px`;
             div.onclick = () => handlePieceClick(index);
             container.appendChild(div);
         });
@@ -183,6 +236,7 @@
             selectedPiece = index;
             renderPuzzle();
         } else {
+            // Меняем местами
             const temp = pieces[selectedPiece];
             pieces[selectedPiece] = pieces[index];
             pieces[index] = temp;
@@ -192,25 +246,34 @@
         }
     }
 
-    function checkWin() {
-        let win = true;
+    function checkWinState() {
         for (let i = 0; i < pieces.length; i++) {
-            if (pieces[i] !== i) win = false;
+            if (pieces[i] !== i) return false;
         }
-        if (win) {
-            setTimeout(nextScreen, 600);
+        return true;
+    }
+
+    function checkWin() {
+        if (checkWinState()) {
+            // Небольшая задержка перед переходом, чтобы показать собранный пазл
+            setTimeout(nextScreen, 800); 
         }
     }
 
     function initTimer() {
+        // Установленная дата: 15.08.2026 21:00
         const target = new Date('2026-08-15T21:00:00').getTime();
-        setInterval(() => {
+        
+        const timerInterval = setInterval(() => {
             const now = new Date().getTime();
             const d = target - now;
+            
             if (d <= 0) {
-                document.getElementById('timer').innerText = "Время вышло!";
+                document.getElementById('timer').innerText = "Время пришло!";
+                clearInterval(timerInterval);
                 return;
             }
+            
             const days = Math.floor(d / (1000 * 60 * 60 * 24));
             const hours = Math.floor((d % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const minutes = Math.floor((d % (1000 * 60 * 60)) / (1000 * 60));
